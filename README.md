@@ -1,127 +1,108 @@
 ```markdown
 # Tree-sitter Java BIO Labeling with NeuroX Integration
 
-## Overview
-This repository integrates **Tree-sitter** for parsing Java code with **BIO (Begin-Inside-Outside)** labeling for generating binary and multiclass annotated datasets. It also integrates **NeuroX** to generate activation files for further analysis. The dataset generation leverages the combination of Tree-sitter's Abstract Syntax Tree (AST) and custom label extraction using BIO tagging, with support for both binary and multiclass labels.
+### RAID Tool: Rapid Automatic Interpretability Datasets
 
-## Features
-- **BIO Tagging**: Label tokens as `B-`, `I-`, or `O-` based on their chunk positions (Beginning, Inside, Outside).
-- **NeuroX Activation Files**: Automatically generate NeuroX-compatible activation files during dataset generation.
-- **Tree-sitter Integration**: Efficient parsing of Java code using the Tree-sitter library.
-- **Custom Dataset Generation**: Generate binary and multiclass labeled datasets for machine learning tasks, which can be used to train and analyze models.
+This tool aims to quickly generate code datasets for interpretability studies. It provides functionality for parsing Java code using Tree-sitter, labeling the code with BIO tags, and generating activation files for NeuroX.
 
-## Installation
+### How the Tool Works
 
-1. Clone the repository:
+1. **Tree-sitter Overview**:
+   Tree-sitter is a parser generator tool and an incremental parsing library. It builds a concrete syntax tree for a source file and efficiently updates the syntax tree as the source file is edited.
 
-```bash
-git clone https://github.com/your-username/tree-sitter-java-bio-labeling.git
-cd tree-sitter-java-bio-labeling
-```
+2. **Token Extraction**:
+   After parsing the code into an Abstract Syntax Tree (AST), the tool traverses the AST to extract tokens, which represent meaningful elements such as keywords, identifiers, and literals.
 
-2. Install the dependencies:
+3. **BIO Labeling**:
+   Each token is labeled with **BIO tags** (Begin, Inside, Outside) to indicate its position within various constructs (e.g., loops, conditions, functions).
 
-```bash
-pip install -r requirements.txt
-```
-
-### Requirements
-
-- Python 3.x
-- Tree-sitter
-- NumPy
-- NeuroX (for activation file generation)
-
-## Usage
-
-1. **Prepare the Java source code**: You will provide your Java file as input.
-2. **Run the script**:
-
-```bash
-python bio_labeling.py <path_to_your_java_file>
-```
-
-3. **Output**: The program will output BIO-labeled tokens to the console and also generate NeuroX-compatible activation files.
-
-## Example
-
-For a sample Java code like this:
-
-```java
-public class HelloWorld {
-    public static void main(String[] args) {
-        for (int i = 0; i < 10; i++) {
-            System.out.println(i);
-        }
-    }
-}
-```
-
-The output will be BIO-labeled as follows:
-
-```plaintext
-public -> O-other
-class -> B-other
-HelloWorld -> I-other
-{ -> O-other
-public -> O-other
-static -> O-other
-void -> O-other
-main -> B-function
-( -> I-function
-String[] -> I-function
-args -> I-function
-) -> I-function
-{ -> O-other
-for -> B-loop
-(int -> I-loop
-i -> I-loop-variable
-= -> I-loop
-...
-```
-
-## NeuroX Activation Files
-
-Along with BIO-labeled tokens, the script generates activation files for use with **NeuroX**. These files can be used for model analysis and further experimentation in a neural network environment. The format of these files will match the format required for NeuroX's input and activation data.
-
-## Future Enhancements
-
-- Additional optimizations for BIO labeling with larger datasets.
-- Support for more Java constructs (e.g., switch cases, lambdas) to improve token extraction.
-
-## Contributions
-
-Feel free to fork this repository, submit pull requests, or open issues to improve functionality and extend support for other languages or use cases.
-```
+4. **NeuroX Activation Files**:
+   The tool automatically generates **NeuroX-compatible activation files** that can be used for probing or alignment studies.
 
 ---
 
+## Installation
+
+1. **Clone the repository**:
+    ```bash
+    git clone https://github.com/your-username/tree-sitter-java-bio-labeling.git
+    cd tree-sitter-java-bio-labeling
+    ```
+
+2. **Install the required dependencies**:
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+3. **Additional libraries**:
+    Ensure you have the necessary dependencies:
+    ```bash
+    pip install tree-sitter-java
+    pip install graphviz
+    ```
+
+---
+
+## Code Walkthrough
+
+### Step 1: Parsing Java Code and Extracting Tokens
+
+The following code parses a Java file, extracts tokens using Tree-sitter, and labels them with BIO tags.
 
 ```python
 import numpy as np
-from typing import List, Tuple
+import re
+import collections
+from typing import Pattern, Callable, Dict, List
 from tree_sitter import Language, Parser
 import tree_sitter_java as tsjava
-import sys
-import os
+import graphviz
 
 # Load Tree-sitter Java language
 JAVA_LANGUAGE = Language(tsjava.language())
-parser = Parser()
-parser.set_language(JAVA_LANGUAGE)
+parser = Parser(JAVA_LANGUAGE)
 
-# Read Java source code from a file
-def read_source_code(filename: str) -> bytes:
-    with open(filename, 'rb') as f:
-        return f.read()
+# Sample Java code for testing
+source_code = b'''
+public class HelloWorld {
+    public static void main(String[] args) {
+        System.out.println("Hello, World!");
+    }
+}
+'''
 
-# BIO Labeling function
+# Parse the source code
+tree = parser.parse(source_code)
+root_node = tree.root_node
+
+# Extract tokens from the Tree-sitter AST
+def extract_tokens(node):
+    tokens = []
+    if node.is_named:
+        tokens.append((node.type, node.text.decode('utf-8')))
+    for child in node.children:
+        tokens.extend(extract_tokens(child))
+    return tokens
+
+tokens = extract_tokens(root_node)
+
+# Print tokens to inspect their types and contents
+print("Extracted Tokens and Types:")
+for token_type, token_text in tokens:
+    print(f"Type: {token_type}, Text: {token_text}")
+```
+
+### Step 2: BIO Labeling
+
+Once the tokens are extracted, they are labeled with **BIO tags** based on their position in the AST. The code assigns `B-`, `I-`, and `O-` labels based on the token's role in constructs like functions, loops, and conditions.
+
+```python
 def bio_labeling(node, prev_label=None) -> List[Tuple[str, str]]:
     tokens = []
     if node.is_named:
         token_text = node.text.decode('utf-8')
         
-        # Determine the label type based on the node type (from the PDF example)
+        # Determine label based on the node type
         if node.type == 'for_statement':
             label = 'loop'
         elif node.type == 'if_statement':
@@ -133,52 +114,105 @@ def bio_labeling(node, prev_label=None) -> List[Tuple[str, str]]:
         else:
             label = 'other'
         
-        # Assign BIO tagging
+        # Assign BIO tag
         if prev_label == label:
-            tokens.append(('I-' + label, token_text))  # Inside the same chunk
+            tokens.append(('I-' + label, token_text))
         else:
-            tokens.append(('B-' + label, token_text))  # Beginning of a new chunk
+            tokens.append(('B-' + label, token_text))
         
         prev_label = label
     else:
-        tokens.append(('O-other', node.text.decode('utf-8')))  # Outside any labeled chunk
+        tokens.append(('O-other', node.text.decode('utf-8')))
     
-    # Recursively call the function for each child node
     for child in node.children:
         tokens.extend(bio_labeling(child, prev_label))
     
     return tokens
 
-# Function to save the NeuroX activation file
-def save_activation_file(tokens_with_bio_labels, filename="activation.txt"):
-    with open(filename, 'w') as f:
-        for token, label in tokens_with_bio_labels:
-            f.write(f"{token}\t{label}\n")
-
-# Main execution
-if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python bio_labeling.py <path_to_java_file>")
-        sys.exit(1)
-
-    # Read the source code
-    source_code = read_source_code(sys.argv[1])
-    
-    # Parse the source code using Tree-sitter
-    tree = parser.parse(source_code)
-    root_node = tree.root_node
-    
-    # Extract tokens and BIO labels
-    tokens_with_bio_labels = bio_labeling(root_node)
-
-    # Print the results to the console
-    for token, label in tokens_with_bio_labels:
-        print(f"{token} -> {label}")
-
-    # Save the activation file in NeuroX format
-    activation_filename = os.path.splitext(sys.argv[1])[0] + "_activation.txt"
-    save_activation_file(tokens_with_bio_labels, activation_filename)
-
-    print(f"NeuroX activation file saved as: {activation_filename}")
+# Apply BIO labeling to the tokens
+bio_tokens = bio_labeling(root_node)
 ```
 
+### Step 3: Visualizing the AST
+
+To understand the structure of the parsed code, you can visualize the AST using **Graphviz**. The following code generates a graphical representation of the AST:
+
+```python
+# Visualize the AST using Graphviz
+def visualize_ast(node, graph, parent_id=None):
+    node_id = str(id(node))
+    label = f"{node.type} [{node.start_point}-{node.end_point}]"
+    graph.node(node_id, label)
+    if parent_id:
+        graph.edge(parent_id, node_id)
+    for child in node.children:
+        visualize_ast(child, graph, node_id)
+
+graph = graphviz.Digraph(format="png")
+visualize_ast(root_node, graph)
+graph.render("java_ast")
+```
+
+### Step 4: Multiclass Dataset Generation
+
+You can also use this tool to generate **multiclass datasets** based on tokens and activations. The following code defines filters for different classes (e.g., keywords, function names, etc.) and assigns labels accordingly.
+
+```python
+def _create_multiclass_data(tokens, activations, class_filters, balance_data=False):
+    """
+    Given a list of tokens, their activations, and class_filters, create a multi-class labeled dataset.
+    """
+    class_words = collections.defaultdict(list)
+    class_activations = collections.defaultdict(list)
+
+    def get_class(word):
+        for class_name, filter_fn in class_filters.items():
+            if isinstance(filter_fn, set) and word in filter_fn:
+                return class_name
+            elif isinstance(filter_fn, Pattern) and filter_fn.match(word):
+                return class_name
+            elif callable(filter_fn) and filter_fn(word):
+                return class_name
+        return "negative"
+
+    for token_type, token_text in tokens:
+        class_name = get_class(token_text)
+        class_words[class_name].append(token_text)
+
+    words = []
+    labels = []
+
+    for class_name, word_list in class_words.items():
+        words.extend(word_list)
+        labels.extend([class_name] * len(word_list))
+
+    return words, labels
+
+# Define filters for creating multiclass data
+class_filters = {
+    "function_name": lambda x: re.match(r'\w+', x),
+    "keyword": set(["public", "class", "static", "void", "System", "out", "println"]),
+}
+
+# Simulated activations
+activations = [np.random.rand(len(tokens), 3, 5).tolist()]
+
+# Annotate the data
+words, labels = _create_multiclass_data(tokens, activations, class_filters)
+
+print("\nGenerated Multiclass Labels:")
+for word, label in zip(words, labels):
+    print(f"Word: {word}, Label: {label}")
+```
+
+---
+
+## Example Filters for Multiclass Dataset
+
+```python
+class_filters = {
+    "method_name": lambda t, x: t == "identifier" and re.match(r'\w+', x),
+    "keyword": set(["public", "class", "static", "void", "System", "out", "println"]),
+    "string_literal": lambda t, x: t == "string_literal",
+}
+```

@@ -217,7 +217,8 @@ class_filters = {
 }
 ```
 ---
-Conclusion
+#Conclusion
+---
 This tool combines Tree-sitter's ability to efficiently parse Java source code with BIO labeling and the generation of NeuroX-compatible activation files. With this setup, you can easily extract tokens from Java code, label them with meaningful BIO tags, and prepare datasets for interpretability studies.
 
 To fully test and explore the tool’s capabilities, you can provide real input/output files for testing. Additionally, the tool automatically generates activation files, which will be useful for further analysis, but the detailed handling of these files can be added as needed.

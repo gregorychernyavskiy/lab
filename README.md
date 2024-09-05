@@ -1,24 +1,14 @@
-### Repository Structure:
-
-```
-tree-sitter-java-bio-labeling/
-├── README.md
-├── bio_labeling.py
-├── requirements.txt
-```
-
-### 1. **`README.md`**
-
 ```markdown
-# Tree-sitter Java BIO Labeling
+# Tree-sitter Java BIO Labeling with NeuroX Integration
 
 ## Overview
-This repository integrates **Tree-sitter** for parsing Java code with **BIO (Begin-Inside-Outside)** labeling for generating binary and multiclass annotated datasets. We use Tree-sitter to extract Abstract Syntax Tree (AST) tokens and apply BIO tags to label the tokens based on their position in constructs such as loops, conditions, and functions.
+This repository integrates **Tree-sitter** for parsing Java code with **BIO (Begin-Inside-Outside)** labeling for generating binary and multiclass annotated datasets. It also integrates **NeuroX** to generate activation files for further analysis. The dataset generation leverages the combination of Tree-sitter's Abstract Syntax Tree (AST) and custom label extraction using BIO tagging, with support for both binary and multiclass labels.
 
 ## Features
-- **BIO Tagging**: Label tokens as `B-`, `I-`, or `O-` based on their chunk positions.
+- **BIO Tagging**: Label tokens as `B-`, `I-`, or `O-` based on their chunk positions (Beginning, Inside, Outside).
+- **NeuroX Activation Files**: Automatically generate NeuroX-compatible activation files during dataset generation.
 - **Tree-sitter Integration**: Efficient parsing of Java code using the Tree-sitter library.
-- **Custom Dataset Generation**: This framework will be used for generating labeled datasets for machine learning tasks.
+- **Custom Dataset Generation**: Generate binary and multiclass labeled datasets for machine learning tasks, which can be used to train and analyze models.
 
 ## Installation
 
@@ -40,7 +30,7 @@ pip install -r requirements.txt
 - Python 3.x
 - Tree-sitter
 - NumPy
-- Graphviz (optional, for AST visualization)
+- NeuroX (for activation file generation)
 
 ## Usage
 
@@ -51,7 +41,7 @@ pip install -r requirements.txt
 python bio_labeling.py <path_to_your_java_file>
 ```
 
-3. **Output**: The program will output BIO-labeled tokens to the console.
+3. **Output**: The program will output BIO-labeled tokens to the console and also generate NeuroX-compatible activation files.
 
 ## Example
 
@@ -90,17 +80,22 @@ i -> I-loop-variable
 ...
 ```
 
-## Future Work
+## NeuroX Activation Files
 
-- Integration with **NeuroX activation files** for deeper analysis (work in progress).
-- Enhancing support for additional Java constructs and optimizing the BIO tagging process.
+Along with BIO-labeled tokens, the script generates activation files for use with **NeuroX**. These files can be used for model analysis and further experimentation in a neural network environment. The format of these files will match the format required for NeuroX's input and activation data.
+
+## Future Enhancements
+
+- Additional optimizations for BIO labeling with larger datasets.
+- Support for more Java constructs (e.g., switch cases, lambdas) to improve token extraction.
+
+## Contributions
+
+Feel free to fork this repository, submit pull requests, or open issues to improve functionality and extend support for other languages or use cases.
 ```
 
 ---
 
-### 2. **`bio_labeling.py`**
-
-This script integrates the code from the PDF with BIO labeling.
 
 ```python
 import numpy as np
@@ -108,6 +103,7 @@ from typing import List, Tuple
 from tree_sitter import Language, Parser
 import tree_sitter_java as tsjava
 import sys
+import os
 
 # Load Tree-sitter Java language
 JAVA_LANGUAGE = Language(tsjava.language())
@@ -125,7 +121,7 @@ def bio_labeling(node, prev_label=None) -> List[Tuple[str, str]]:
     if node.is_named:
         token_text = node.text.decode('utf-8')
         
-        # Determine the label type based on the node type (this is from the PDF example)
+        # Determine the label type based on the node type (from the PDF example)
         if node.type == 'for_statement':
             label = 'loop'
         elif node.type == 'if_statement':
@@ -153,6 +149,12 @@ def bio_labeling(node, prev_label=None) -> List[Tuple[str, str]]:
     
     return tokens
 
+# Function to save the NeuroX activation file
+def save_activation_file(tokens_with_bio_labels, filename="activation.txt"):
+    with open(filename, 'w') as f:
+        for token, label in tokens_with_bio_labels:
+            f.write(f"{token}\t{label}\n")
+
 # Main execution
 if __name__ == "__main__":
     if len(sys.argv) != 2:
@@ -169,41 +171,14 @@ if __name__ == "__main__":
     # Extract tokens and BIO labels
     tokens_with_bio_labels = bio_labeling(root_node)
 
-    # Print the results
+    # Print the results to the console
     for token, label in tokens_with_bio_labels:
         print(f"{token} -> {label}")
+
+    # Save the activation file in NeuroX format
+    activation_filename = os.path.splitext(sys.argv[1])[0] + "_activation.txt"
+    save_activation_file(tokens_with_bio_labels, activation_filename)
+
+    print(f"NeuroX activation file saved as: {activation_filename}")
 ```
 
----
-
-### 3. **`requirements.txt`**
-
-```text
-tree-sitter
-numpy
-```
-
----
-
-### How to Set Up and Use the Repository:
-
-1. **Create a new GitHub repository**:
-   - Go to GitHub and create a repository called `tree-sitter-java-bio-labeling`.
-   - Clone the repository to your local machine.
-
-2. **Add the Files**:
-   - Copy and paste the files above into the local repository.
-
-3. **Push to GitHub**:
-   - Run the following commands to push the repository to GitHub:
-   
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit"
-   git remote add origin https://github.com/your-username/tree-sitter-java-bio-labeling.git
-   git push -u origin master
-   ```
-
-4. **Test the Repository**:
-   - Provide a Java file, run the command, and check the output BIO-labeled tokens.
